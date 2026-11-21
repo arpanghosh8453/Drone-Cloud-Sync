@@ -69,14 +69,6 @@ jobs:
       - name: Build macOS application and disk image
         if: runner.os == 'macOS'
         run: npm run tauri build -- --target ${{ matrix.target }} --bundles app,dmg
-      - name: Archive macOS application
-        if: runner.os == 'macOS'
-        env:
-          BUILD_TARGET: ${{ matrix.target }}
-        run: |
-          ditto -c -k --sequesterRsrc --keepParent \
-            "src-tauri/target/$BUILD_TARGET/release/bundle/macos/drone-cloud-sync.app" \
-            "src-tauri/target/$BUILD_TARGET/release/bundle/macos/drone-cloud-sync-$BUILD_TARGET.app.zip"
       - name: Prepare release assets
         shell: bash
         env:
@@ -93,7 +85,6 @@ jobs:
             cp "$BUILD_DIR"/msi/*.msi "release-assets/$ASSET_NAME.msi"
           else
             cp "$BUILD_DIR"/dmg/*.dmg "release-assets/$ASSET_NAME.dmg"
-            cp "$BUILD_DIR"/macos/*.app.zip "release-assets/$ASSET_NAME.app.zip"
           fi
       - name: Upload Linux packages
         uses: actions/upload-artifact@v4
@@ -109,7 +100,7 @@ jobs:
           name: drone-cloud-sync-windows-${{ matrix.target }}
           path: release-assets/*
           if-no-files-found: error
-      - name: Upload macOS packages
+      - name: Upload macOS disk image
         uses: actions/upload-artifact@v4
         if: runner.os == 'macOS'
         with:

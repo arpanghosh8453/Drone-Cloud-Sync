@@ -16,10 +16,10 @@ Independently developed; not affiliated with DJI.
 | ------------------------- | --------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
 | Windows 10/11 (x64)       | Your PC has a 64-bit Intel or AMD processor.                                                        | [Setup EXE][windows-exe] · [MSI][windows-msi]         |
 | Linux (x64)               | Choose **DEB** for Debian/Ubuntu, or **AppImage** for compatible Linux distributions.               | [AppImage][linux-appimage] · [DEB][linux-deb]         |
-| macOS 11+ — Apple Silicon | Your Mac has an **Apple M-series chip** (M1, M2, M3, M4, etc.). Choose the **aarch64 / ARM64** DMG. | [Apple Silicon DMG][mac-arm-dmg] · [ZIP][mac-arm-zip] |
-| macOS 11+ — Intel         | Your Mac has an **Intel processor**. Choose the **x86_64 / x64** DMG.                               | [Intel DMG][mac-intel-dmg] · [ZIP][mac-intel-zip]     |
+| macOS 11+ — Apple Silicon | Your Mac has an **Apple M-series chip** (M1, M2, M3, M4, etc.). Choose the **aarch64 / ARM64** DMG. | [Apple Silicon DMG][mac-arm-dmg]                    |
+| macOS 11+ — Intel         | Your Mac has an **Intel processor**. Choose the **x86_64 / x64** DMG.                               | [Intel DMG][mac-intel-dmg]                          |
 
-On a Mac, open **Apple menu → About This Mac** to check the chip or processor. Open the matching DMG and drag the app into Applications; ZIPs contain the same app. On Windows, choose either EXE or MSI.
+On a Mac, open **Apple menu → About This Mac** to check the chip or processor. Open the matching DMG and drag the app into Applications. On Windows, choose either EXE or MSI.
 
 On Linux, install the DEB with your package manager, or make the AppImage executable and run it. Release packages are currently unsigned; macOS packages are not notarized.
 
@@ -28,9 +28,7 @@ On Linux, install the DEB with your package manager, or make the AppImage execut
 [windows-exe]: https://github.com/arpanghosh8453/Drone-Cloud-Sync/releases/latest/download/drone-cloud-sync-windows-x86_64-setup.exe
 [windows-msi]: https://github.com/arpanghosh8453/Drone-Cloud-Sync/releases/latest/download/drone-cloud-sync-windows-x86_64.msi
 [mac-arm-dmg]: https://github.com/arpanghosh8453/Drone-Cloud-Sync/releases/latest/download/drone-cloud-sync-macos-aarch64.dmg
-[mac-arm-zip]: https://github.com/arpanghosh8453/Drone-Cloud-Sync/releases/latest/download/drone-cloud-sync-macos-aarch64.app.zip
 [mac-intel-dmg]: https://github.com/arpanghosh8453/Drone-Cloud-Sync/releases/latest/download/drone-cloud-sync-macos-x86_64.dmg
-[mac-intel-zip]: https://github.com/arpanghosh8453/Drone-Cloud-Sync/releases/latest/download/drone-cloud-sync-macos-x86_64.app.zip
 
 ## Screenshots
 
@@ -80,7 +78,7 @@ npm run tauri build -- --target x86_64-apple-darwin --bundles app,dmg
 
 Bundles appear under `src-tauri/target/release/bundle/`, or `src-tauri/target/<target>/release/bundle/` when a target is specified.
 
-The [build workflow](.github/workflows/build.yml) publishes Linux AppImage/DEB, Windows installers, and both macOS packages to GitHub releases after all builds succeed. For a manual run, enter an existing **release_tag** to rebuild and replace its assets; leave it blank for Actions artifacts only. macOS packaging follows the [open-dronelog workflow](https://github.com/arpanghosh8453/open-dronelog/blob/main/.github/workflows/build.yml).
+The [build workflow](.github/workflows/build.yml) publishes Linux AppImage/DEB, Windows installers, and macOS DMGs for Apple Silicon and Intel to GitHub releases after all builds succeed. For a manual run, enter an existing **release_tag** to rebuild and replace its assets; leave it blank for Actions artifacts only. macOS packaging follows the [open-dronelog workflow](https://github.com/arpanghosh8453/open-dronelog/blob/main/.github/workflows/build.yml).
 
 ## Data and sessions
 
