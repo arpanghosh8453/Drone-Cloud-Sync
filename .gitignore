@@ -62,3 +62,8 @@ pnpm-debug.log*
 Thumbs.db
 Desktop.ini
 $RECYCLE.BIN/
+.github/agents
+.github/hooks
+.github/skills
+.impeccable/
+PRODUCT.md

@@ -1,4 +1,4 @@
-import { FolderOpen, RefreshCw, RotateCw, X } from "lucide-react";
+import { ArrowRight, FolderOpen, RefreshCw, RotateCw, X } from "lucide-react";
 import type {
   FlightRecord,
   InventoryProgress,
@@ -23,6 +23,7 @@ export function FlightsPage({
   chooseFolder,
   preferences,
   savePreferences,
+  activeRecordId,
 }: {
   records: FlightRecord[];
   connected: boolean;
@@ -38,18 +39,19 @@ export function FlightsPage({
   chooseFolder: () => void;
   preferences?: string;
   savePreferences: (p: string) => void;
+  activeRecordId?: string;
 }) {
   const fetching = inventory?.state === "Fetching";
   const syncing = syncActive(sync);
+  const verified = records.filter(
+    (record) => record.status === "Downloaded",
+  ).length;
   return (
     <>
       <div className="page-heading">
         <div>
-          <span className="eyebrow">YOUR FLIGHT LIBRARY</span>
-          <h1>
-            Flight Logs <span className="heading-count">{records.length}</span>
-          </h1>
-          <p>Every flight, organized. Ready when you need it.</p>
+          <h1>Flight logs</h1>
+          <p>Your DJI cloud records, in your own folder.</p>
         </div>
         <div className="heading-actions">
           <Button
@@ -69,11 +71,28 @@ export function FlightsPage({
           </Button>
         </div>
       </div>
+      <div
+        className="library-summary"
+        aria-label="Cloud and local flight records"
+      >
+        <span>
+          Cloud records <strong>{records.length}</strong>
+        </span>
+        <ArrowRight size={22} aria-hidden="true" />
+        <span>
+          Local verified <strong>{verified}</strong>
+        </span>
+        <span className="summary-note">
+          {folder
+            ? `${records.length - verified} not downloaded`
+            : "Choose a folder to save your logs"}
+        </span>
+      </div>
       {!folder && (
         <div className="folder-banner">
           <FolderOpen size={20} />
           <div>
-            <strong>Give your flight logs a home</strong>
+            <strong>Choose where to save your logs</strong>
             <p>
               Choose a local folder to enable downloads and synchronization.
             </p>
@@ -110,6 +129,7 @@ export function FlightsPage({
         canDownload={connected && !!folder && !syncing}
         preferences={preferences}
         savePreferences={savePreferences}
+        activeRecordId={activeRecordId}
       />
     </>
   );

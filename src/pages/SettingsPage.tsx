@@ -35,9 +35,8 @@ export function SettingsPage({
     <>
       <div className="page-heading">
         <div>
-          <span className="eyebrow">MAKE IT YOURS</span>
           <h1>Settings</h1>
-          <p>A few preferences. Everything stays on this device.</p>
+          <p>Your folder, appearance, and download preferences.</p>
         </div>
       </div>
       <div className="settings-stack">
@@ -81,13 +80,13 @@ export function SettingsPage({
             </Button>
           </div>
           <p className="hint">
-            Renamed files are recognized by verified hashes. Files are never
-            matched by filename alone.
+            Renamed logs are recognized by their contents, so existing copies
+            can be kept.
           </p>
         </section>
         <section className="settings-card">
           <h2>Appearance</h2>
-          <p className="muted">Choose what feels comfortable.</p>
+          <p className="muted">Use light, dark, or your system appearance.</p>
           <div className="theme-options">
             {(
               [
@@ -160,10 +159,7 @@ export function SettingsPage({
             </Badge>
           </div>
           <div className="setting-row">
-            <p>
-              Passwords are never saved. Remembered tokens use the native
-              credential vault.
-            </p>
+            <p>Your password is never saved.</p>
             <Button variant="outline" size="sm" onClick={logout}>
               <LogOut size={14} />
               Sign out

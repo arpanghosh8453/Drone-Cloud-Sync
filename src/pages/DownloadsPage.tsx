@@ -33,7 +33,8 @@ export function DownloadsPage({
   folder?: string;
 }) {
   const [tab, setTab] = useState("All");
-  const active = downloads.filter((d) => !terminal(d));
+  const pending = downloads.filter((d) => !terminal(d));
+  const active = pending.filter((d) => d.state !== "Queued");
   const tabs = ["All", "Active", "Queued", "Completed", "Failed"];
   const visible = downloads.filter(
     (d) =>
@@ -44,16 +45,15 @@ export function DownloadsPage({
           ? d.state === "Failed" || d.state === "Cancelled"
           : d.state === tab),
   );
-  const batch = active.length
-    ? downloads.filter((d) => active.some((a) => a.batchId === d.batchId))
+  const batch = pending.length
+    ? downloads.filter((d) => pending.some((a) => a.batchId === d.batchId))
     : [];
   return (
     <>
       <div className="page-heading">
         <div>
-          <span className="eyebrow">TRANSFER CENTER</span>
           <h1>Downloads</h1>
-          <p>Your files, from the first byte to the final verification.</p>
+          <p>Track your downloads and open your saved flight logs.</p>
         </div>
         <Button variant="outline" disabled={!folder} onClick={openFolder}>
           <FolderOpen size={16} />
@@ -82,7 +82,7 @@ export function DownloadsPage({
           <Button
             variant="ghost"
             size="sm"
-            disabled={active.length === 0}
+            disabled={pending.length === 0}
             onClick={cancelAll}
           >
             <X size={14} />
@@ -107,7 +107,7 @@ export function DownloadsPage({
             variant="ghost"
             size="icon"
             disabled={
-              active.length > 0 ||
+              pending.length > 0 ||
               !downloads.some((d) => d.state === "Completed")
             }
             aria-label="Clear completed history"
@@ -128,11 +128,13 @@ export function DownloadsPage({
             <Download size={30} />
             <h3>
               {tab === "All"
-                ? "A home for your downloads"
+                ? "No downloads yet"
                 : `No ${tab.toLowerCase()} downloads`}
             </h3>
             <p>
-              Select flight records to download, or sync your entire library.
+              {tab === "All"
+                ? "Select flight records to download, or sync your entire library."
+                : "Choose another filter to see your other downloads."}
             </p>
           </div>
         )}

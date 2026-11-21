@@ -9,6 +9,7 @@ import {
   type ColumnDef,
   type RowSelectionState,
   type SortingState,
+  type VisibilityState,
 } from "@tanstack/react-table";
 import {
   ArrowDown,
@@ -20,6 +21,7 @@ import {
   Search,
   X,
   Download,
+  Columns3,
 } from "lucide-react";
 import type { FlightRecord } from "../types";
 import { date, value } from "../lib/utils";
@@ -34,6 +36,7 @@ interface Props {
   canDownload: boolean;
   preferences?: string;
   savePreferences: (p: string) => void;
+  activeRecordId?: string;
 }
 export function FlightTable({
   records,
@@ -42,6 +45,7 @@ export function FlightTable({
   canDownload,
   preferences,
   savePreferences,
+  activeRecordId,
 }: Props) {
   const initial = useMemo(() => {
     try {
@@ -50,6 +54,7 @@ export function FlightTable({
         aircraft?: string;
         status?: string;
         sorting?: SortingState;
+        columnVisibility?: VisibilityState;
       };
     } catch {
       return {};
@@ -62,9 +67,25 @@ export function FlightTable({
     initial.sorting || [{ id: "sortTimestamp", desc: true }],
   );
   const [selection, setSelection] = useState<RowSelectionState>({});
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(
+    initial.columnVisibility || {
+      duration: false,
+      distance: false,
+      maxAltitude: false,
+      serverMd5: false,
+      originalFilename: false,
+    },
+  );
   function persist(changes: object) {
     savePreferences(
-      JSON.stringify({ search, aircraft, status, sorting, ...changes }),
+      JSON.stringify({
+        search,
+        aircraft,
+        status,
+        sorting,
+        columnVisibility,
+        ...changes,
+      }),
     );
   }
   const columns = useMemo<ColumnDef<FlightRecord>[]>(
@@ -99,14 +120,23 @@ export function FlightTable({
         accessorKey: "sortTimestamp",
         header: "Date",
         cell: ({ row }) => (
-          <span className="date-cell">
-            {date(row.original.flightTimestamp, row.original.sortTimestamp)}
-          </span>
+          <div className="flight-cell">
+            <span className="date-cell">
+              {date(row.original.flightTimestamp, row.original.sortTimestamp)}
+            </span>
+            <span
+              className="flight-filename"
+              title={row.original.originalFilename}
+            >
+              {row.original.originalFilename}
+            </span>
+          </div>
         ),
       },
       {
         accessorKey: "aircraftName",
         header: "Aircraft",
+        filterFn: "equalsString",
         cell: (c) => <span>{value(c.getValue())}</span>,
       },
       {
@@ -164,7 +194,7 @@ export function FlightTable({
         cell: (c) => (
           <span className="filename-cell" title={String(c.getValue())}>
             <FileText size={14} />
-            {String(c.getValue())}
+            <span>{String(c.getValue())}</span>
           </span>
         ),
       },
@@ -189,7 +219,18 @@ export function FlightTable({
     data: records,
     columns,
     getRowId: (r) => r.id,
-    state: { sorting, rowSelection: selection, columnFilters },
+    state: {
+      sorting,
+      rowSelection: selection,
+      columnFilters,
+      columnVisibility,
+    },
+    onColumnVisibilityChange: (updater) => {
+      const next =
+        typeof updater === "function" ? updater(columnVisibility) : updater;
+      setColumnVisibility(next);
+      persist({ columnVisibility: next });
+    },
     onSortingChange: (updater) => {
       const next = typeof updater === "function" ? updater(sorting) : updater;
       setSorting(next);
@@ -271,7 +312,34 @@ export function FlightTable({
             <X size={16} />
           </Button>
         )}
-        <span className="filter-count">{filtered} records</span>
+        <details className="column-picker">
+          <summary>
+            <Columns3 size={16} />
+            Columns
+          </summary>
+          <fieldset>
+            <legend className="sr-only">Additional flight columns</legend>
+            {(
+              [
+                ["duration", "Duration"],
+                ["distance", "Distance"],
+                ["maxAltitude", "Altitude"],
+                ["serverMd5", "Hash"],
+                ["originalFilename", "Filename"],
+              ] as const
+            ).map(([id, label]) => (
+              <label key={id}>
+                <Checkbox
+                  checked={table.getColumn(id)?.getIsVisible()}
+                  onCheckedChange={(checked) =>
+                    table.getColumn(id)?.toggleVisibility(checked === true)
+                  }
+                />
+                {label}
+              </label>
+            ))}
+          </fieldset>
+        </details>
       </div>
       <div className="selection-actions">
         <Button
@@ -309,13 +377,32 @@ export function FlightTable({
           </Button>
         </div>
       )}
-      <div className="table-scroll">
+      <div
+        className="table-scroll"
+        role="region"
+        aria-label="Flight records"
+        tabIndex={0}
+      >
         <table>
+          <caption className="sr-only">Your cloud flight records</caption>
           <thead>
             {table.getHeaderGroups().map((g) => (
               <tr key={g.id}>
                 {g.headers.map((h) => (
-                  <th key={h.id}>
+                  <th
+                    key={h.id}
+                    className={`column-${h.id}`}
+                    scope="col"
+                    aria-sort={
+                      h.column.getCanSort()
+                        ? h.column.getIsSorted() === "desc"
+                          ? "descending"
+                          : h.column.getIsSorted() === "asc"
+                            ? "ascending"
+                            : "none"
+                        : undefined
+                    }
+                  >
                     {h.column.getCanSort() ? (
                       <button onClick={h.column.getToggleSortingHandler()}>
                         {flexRender(h.column.columnDef.header, h.getContext())}
@@ -339,10 +426,14 @@ export function FlightTable({
             {table.getRowModel().rows.map((row) => (
               <tr
                 key={row.id}
-                className={row.getIsSelected() ? "selected" : ""}
+                className={`${row.getIsSelected() ? "selected" : ""} ${row.id === activeRecordId ? "current" : ""}`}
+                aria-selected={row.getIsSelected()}
                 tabIndex={0}
                 aria-label={`View ${row.original.originalFilename}`}
-                onClick={() => onOpen(row.original)}
+                onClick={(event) => {
+                  event.currentTarget.focus();
+                  onOpen(row.original);
+                }}
                 onKeyDown={(e) => {
                   if (
                     e.target === e.currentTarget &&
@@ -354,7 +445,7 @@ export function FlightTable({
                 }}
               >
                 {row.getVisibleCells().map((c) => (
-                  <td key={c.id}>
+                  <td key={c.id} className={`column-${c.column.id}`}>
                     {flexRender(c.column.columnDef.cell, c.getContext())}
                   </td>
                 ))}
@@ -373,7 +464,7 @@ export function FlightTable({
             <p>
               {records.length
                 ? "Try another filename or clear the filters."
-                : "Refresh the cloud inventory to retrieve your flight logs."}
+                : "Choose Refresh to fetch your flight logs."}
             </p>
           </div>
         )}

@@ -1,18 +1,11 @@
-import { useEffect, useState } from "react";
-import * as Dialog from "@radix-ui/react-dialog";
-import {
-  Copy,
-  Download,
-  FolderOpen,
-  X,
-  FileText,
-  LoaderCircle,
-} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Copy, Download, FolderOpen, X, LoaderCircle } from "lucide-react";
 import type { FlightDetails as Details, FlightRecord } from "../types";
 import { command } from "../lib/api";
 import { date, errorMessage, value } from "../lib/utils";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
+
 export function FlightDetails({
   record,
   close,
@@ -29,14 +22,29 @@ export function FlightDetails({
   const [details, setDetails] = useState<Details | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
+  const returnFocus = useRef<HTMLElement | null>(null);
+  const closeButton = useRef<HTMLButtonElement | null>(null);
+  useEffect(() => {
+    if (record) {
+      returnFocus.current = document.activeElement as HTMLElement | null;
+      closeButton.current?.focus({ preventScroll: true });
+    } else if (returnFocus.current) {
+      const target = returnFocus.current.isConnected
+        ? returnFocus.current
+        : document.querySelector<HTMLElement>("nav [aria-current='page']");
+      target?.focus({ preventScroll: true });
+      returnFocus.current = null;
+    }
+  }, [record?.id]);
   useEffect(() => {
     let current = true;
     setDetails(null);
     setError(null);
+    setCopied(null);
     if (record)
       void command<Details>("get_flight_details", { recordId: record.id })
-        .then((d) => {
-          if (current) setDetails(d);
+        .then((result) => {
+          if (current) setDetails(result);
         })
         .catch((e) => {
           if (current) setError(errorMessage(e));
@@ -56,158 +64,166 @@ export function FlightDetails({
     }
   }
   const r = details?.record || record;
+  if (!r) return null;
   return (
-    <Dialog.Root
-      open={!!record}
-      onOpenChange={(v) => {
-        if (!v) close();
+    <aside
+      className="detail-panel"
+      aria-labelledby="flight-details-title"
+      onKeyDown={(event) => {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          close();
+        }
       }}
     >
-      <Dialog.Portal>
-        <Dialog.Overlay className="dialog-overlay" />
-        <Dialog.Content className="detail-panel">
-          <div className="detail-header">
-            <div>
-              <span className="eyebrow">FLIGHT RECORD</span>
-              <Dialog.Title>Flight details</Dialog.Title>
-            </div>
-            <Dialog.Close asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label="Close flight details"
-              >
-                <X size={19} />
-              </Button>
-            </Dialog.Close>
+      <div className="detail-header">
+        <h2 id="flight-details-title">Flight details</h2>
+        <Button
+          ref={closeButton}
+          variant="ghost"
+          size="icon"
+          aria-label="Close flight details"
+          onClick={close}
+        >
+          <X size={18} />
+        </Button>
+      </div>
+      <div className="detail-body">
+        <div className="detail-file">
+          <h3>{date(r.flightTimestamp, r.sortTimestamp)}</h3>
+          <p>{r.aircraftName || "Aircraft unavailable"}</p>
+          <Badge
+            tone={
+              r.status === "Downloaded"
+                ? "success"
+                : r.status === "Failed"
+                  ? "danger"
+                  : "neutral"
+            }
+          >
+            {r.status}
+          </Badge>
+        </div>
+        <dl className="metadata-grid">
+          <dt>Original log</dt>
+          <dd className="detail-filename">{r.originalFilename}</dd>
+        </dl>
+        <h3>Local file</h3>
+        <p className="local-path">
+          {r.localPath || "This log has not been downloaded."}
+        </p>
+        <div className="detail-actions">
+          <Button
+            disabled={!canDownload}
+            onClick={() => download(r.id, r.status === "Downloaded")}
+          >
+            <Download size={15} />
+            {r.status === "Downloaded"
+              ? "Download another copy"
+              : "Download log"}
+          </Button>
+          {r.localPath && (
+            <Button variant="outline" onClick={() => openFolder(r.id)}>
+              <FolderOpen size={15} />
+              Open folder
+            </Button>
+          )}
+        </div>
+        {error && (
+          <div className="notice danger" role="alert">
+            {error}
           </div>
-          <Dialog.Description className="sr-only">
-            Flight metadata, local file hashes, and download history.
-          </Dialog.Description>
-          {r && (
-            <div className="detail-body">
-              <div className="detail-file">
-                <FileText size={24} />
-                <strong>{r.originalFilename}</strong>
-                <Badge tone={r.status === "Downloaded" ? "success" : "neutral"}>
-                  {r.status}
-                </Badge>
-              </div>
-              <dl className="metadata-grid">
-                <dt>Flight date</dt>
-                <dd>{date(r.flightTimestamp, r.sortTimestamp)}</dd>
-                <dt>Aircraft</dt>
-                <dd>{r.aircraftName || "—"}</dd>
-                <dt>Serial number</dt>
-                <dd>{r.aircraftSerial || "—"}</dd>
-                <dt>Duration</dt>
-                <dd>{value(r.duration)}</dd>
-                <dt>Distance</dt>
-                <dd>{value(r.distance)}</dd>
-                <dt>Maximum altitude</dt>
-                <dd>{value(r.maxAltitude)}</dd>
-              </dl>
-              <p className="hint">
-                Numeric values retain the cloud’s original units.
-              </p>
-              <h3>File integrity</h3>
-              {(
-                [
-                  ["Server MD5", r.serverMd5],
-                  ["Local MD5", r.localMd5],
-                  ["Local SHA-256", r.localSha256],
-                ] as const
-              ).map(([label, hash]) => (
-                <div className="hash-field" key={label}>
-                  <div>
-                    <span>{label}</span>
-                    {hash && (
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        aria-label={`Copy ${label}`}
-                        title={`Copy ${label}`}
-                        onClick={() => void copy(hash, label)}
-                      >
-                        <Copy size={13} />
-                      </Button>
-                    )}
-                  </div>
-                  <code>{hash || "Not available"}</code>
-                </div>
-              ))}
-              <p className="hint">
-                Server hash scope:{" "}
-                {r.serverHashKind === "content"
-                  ? "verified uncompressed TXT content"
-                  : r.serverHashKind === "payload"
-                    ? "compressed download payload"
-                    : "unconfirmed; not used for matching"}
-                .
-              </p>
-              {copied && (
-                <p className="hint" role="status">
-                  {copied} copied.
-                </p>
-              )}
-              <h3>Local file</h3>
-              <code className="local-path">
-                {r.localPath || "This record has no downloaded file."}
-              </code>
-              <div className="detail-actions">
-                <Button
-                  disabled={!canDownload}
-                  onClick={() => download(r.id, r.status === "Downloaded")}
-                >
-                  <Download size={15} />
-                  {r.status === "Downloaded"
-                    ? "Download another copy"
-                    : "Download log"}
-                </Button>
-                {r.localPath && (
-                  <Button variant="outline" onClick={() => openFolder(r.id)}>
-                    <FolderOpen size={15} />
-                    Open folder
+        )}
+        <h3>Download history</h3>
+        {!details && !error && (
+          <span className="detail-loading" role="status">
+            <LoaderCircle size={16} className="spin" />
+            Loading history…
+          </span>
+        )}
+        {details?.history.length === 0 && (
+          <p className="muted">No download attempts yet.</p>
+        )}
+        {details?.history.map((d) => (
+          <div className="detail-attempt" key={d.id}>
+            <Badge
+              tone={
+                d.state === "Completed"
+                  ? "success"
+                  : d.state === "Failed"
+                    ? "danger"
+                    : "neutral"
+              }
+            >
+              {d.state}
+            </Badge>
+            <span>{d.downloadedBytes.toLocaleString()} bytes</span>
+            {d.error && <small>{d.error}</small>}
+          </div>
+        ))}
+        <details className="technical-details">
+          <summary>Flight information</summary>
+          <dl className="metadata-grid">
+            <dt>Serial number</dt>
+            <dd>{r.aircraftSerial || "—"}</dd>
+            <dt>Duration</dt>
+            <dd>{value(r.duration)}</dd>
+            <dt>Distance</dt>
+            <dd>{value(r.distance)}</dd>
+            <dt>Maximum altitude</dt>
+            <dd>{value(r.maxAltitude)}</dd>
+          </dl>
+          <p className="hint">Values use the cloud’s original units.</p>
+        </details>
+        <details className="technical-details">
+          <summary>File integrity</summary>
+          {(
+            [
+              ["Server MD5", r.serverMd5],
+              ["Local MD5", r.localMd5],
+              ["Local SHA-256", r.localSha256],
+            ] as const
+          ).map(([label, hash]) => (
+            <div className="hash-field" key={label}>
+              <div>
+                <span>{label}</span>
+                {hash && (
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    aria-label={`Copy ${label}`}
+                    title={`Copy ${label}`}
+                    onClick={() => void copy(hash, label)}
+                  >
+                    <Copy size={14} />
                   </Button>
                 )}
               </div>
-              <h3>Download history</h3>
-              {!details && !error && (
-                <LoaderCircle size={18} className="spin" />
-              )}
-              {details?.history.length === 0 && (
-                <p className="muted">No download attempts yet.</p>
-              )}
-              {details?.history.map((d) => (
-                <div className="detail-attempt" key={d.id}>
-                  <Badge
-                    tone={
-                      d.state === "Completed"
-                        ? "success"
-                        : d.state === "Failed"
-                          ? "danger"
-                          : "neutral"
-                    }
-                  >
-                    {d.state}
-                  </Badge>
-                  <span>{d.downloadedBytes.toLocaleString()} bytes</span>
-                  {d.error && <small>{d.error}</small>}
-                </div>
-              ))}
-              {error && (
-                <div className="notice danger" role="alert">
-                  {error}
-                </div>
-              )}
-              <h3>Original cloud metadata</h3>
-              <pre className="raw-metadata">
-                {JSON.stringify(r.rawMetadata, null, 2)}
-              </pre>
+              <code>{hash || "Not available"}</code>
             </div>
+          ))}
+          <p className="hint">
+            Server hash scope:{" "}
+            {r.serverHashKind === "content"
+              ? "verified uncompressed TXT content"
+              : r.serverHashKind === "payload"
+                ? "compressed download payload"
+                : "unconfirmed; not used for matching"}
+            .
+          </p>
+          {copied && (
+            <p className="hint" role="status">
+              {copied} copied.
+            </p>
           )}
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
+        </details>
+        <details className="technical-details">
+          <summary>Original cloud metadata</summary>
+          <pre className="raw-metadata">
+            {JSON.stringify(r.rawMetadata, null, 2)}
+          </pre>
+        </details>
+      </div>
+    </aside>
   );
 }

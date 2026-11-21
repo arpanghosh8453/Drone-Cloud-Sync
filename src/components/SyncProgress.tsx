@@ -1,4 +1,11 @@
-import { CheckCircle2, RefreshCw, X } from "lucide-react";
+import {
+  CheckCircle2,
+  CircleAlert,
+  CircleMinus,
+  CirclePause,
+  RefreshCw,
+  X,
+} from "lucide-react";
 import { syncActive } from "../lib/utils";
 import type { SyncProgress as SyncStatus } from "../types";
 import { Button } from "./ui/button";
@@ -12,24 +19,34 @@ export function SyncProgress({
 }) {
   if (!s?.id) return null;
   const active = syncActive(s);
+  const paused = s.stage.startsWith("Paused");
+  const failed = s.stage === "Failed";
+  const complete = s.stage === "Completed" && s.failed === 0;
+  const Icon = paused
+    ? CirclePause
+    : active
+      ? RefreshCw
+      : complete
+        ? CheckCircle2
+        : failed || s.failed > 0
+          ? CircleAlert
+          : CircleMinus;
+  const tone = failed
+    ? "sync-danger"
+    : paused || (!active && !complete)
+      ? "sync-warning"
+      : "";
   const percentage = s.missing
     ? ((s.downloaded + s.failed) / s.missing) * 100
     : 0;
   return (
-    <div
-      className={`sync-panel ${active ? "" : "sync-finished"}`}
-      role="status"
-    >
+    <div className={`sync-panel ${tone}`} role={failed ? "alert" : "status"}>
       <div className="sync-title">
-        {active ? (
-          <RefreshCw size={17} className="spin" />
-        ) : (
-          <CheckCircle2 size={17} />
-        )}
+        <Icon size={17} className={active && !paused ? "spin" : undefined} />
         <strong>
           {active
             ? s.stage
-            : s.stage === "Completed"
+            : complete
               ? "Your flight logs are in sync"
               : `Synchronization ${s.stage.toLowerCase()}`}
         </strong>
@@ -45,7 +62,9 @@ export function SyncProgress({
           label="Synchronization progress"
           value={percentage}
           indeterminate={
-            !s.stage.includes("Downloading") && !s.stage.includes("Verifying")
+            !paused &&
+            !s.stage.includes("Downloading") &&
+            !s.stage.includes("Verifying")
           }
         />
       )}

@@ -146,7 +146,7 @@ export function LoginForm({
           onCheckedChange={(v) => setRemember(v === true)}
           disabled={busy}
         />
-        Remember session on this device
+        Keep me signed in on this device
       </label>
       <Button
         className="login-submit"
@@ -163,10 +163,7 @@ export function LoginForm({
       </Button>
       <div className="secure-note">
         <LockKeyhole size={14} />
-        <span>
-          Your password is never saved. Remembered sessions use your system’s
-          secure credential vault.
-        </span>
+        <span>Your password is never saved.</span>
       </div>
     </form>
   );

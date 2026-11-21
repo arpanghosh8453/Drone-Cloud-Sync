@@ -12,6 +12,7 @@ export function DownloadItem({
   cancel: (id: string) => void;
 }) {
   const active = !terminal(d);
+  const waiting = d.state === "Queued" || d.state === "Paused";
   return (
     <article className="download-item">
       <div className={`file-icon ${d.state === "Completed" ? "success" : ""}`}>
@@ -47,14 +48,11 @@ export function DownloadItem({
           <ProgressBar
             value={d.percentage}
             indeterminate={
-              d.totalBytes === null ||
-              [
-                "Connecting",
-                "Extracting",
-                "Verifying",
-                "Retrying",
-                "Paused",
-              ].includes(d.state)
+              !waiting &&
+              (d.totalBytes === null ||
+                ["Connecting", "Extracting", "Verifying", "Retrying"].includes(
+                  d.state,
+                ))
             }
             label={`${d.filename} progress`}
           />

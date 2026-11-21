@@ -1,7 +1,7 @@
 import { useState } from "react";
 import {
   Cloud,
-  CloudOff,
+  FolderOpen,
   LoaderCircle,
   RefreshCw,
   X,
@@ -59,10 +59,9 @@ export default function App() {
         <Brand />
         <div className="startup-card">
           <Cloud size={32} />
-          <h1>Your desktop workspace is ready</h1>
+          <h1>Open the desktop app</h1>
           <p>
-            Run the native application to connect your account and access local
-            files.
+            Connect your DJI account and save flight logs from the desktop app.
           </p>
           <code>npm run tauri dev</code>
           <p className="hint">
@@ -78,8 +77,8 @@ export default function App() {
         <Brand />
         <div className="startup-card" role="status">
           <LoaderCircle size={28} className="spin" />
-          <h2>Checking cloud session…</h2>
-          <p>Validating your saved session securely.</p>
+          <h2>Connecting to DJI…</h2>
+          <p>Connecting to your DJI account.</p>
         </div>
       </div>
     );
@@ -103,10 +102,10 @@ export default function App() {
         {notice}
         <div className="startup-card">
           <WifiOff size={30} />
-          <h2>Cloud is temporarily unreachable</h2>
+          <h2>DJI cloud is unavailable</h2>
           <p>
-            Your saved session has been retained. Retry when your connection is
-            available, or browse your cached records.
+            Retry when your connection is available, or browse your saved flight
+            records.
           </p>
           {app.session.message && <p className="hint">{app.session.message}</p>}
           <div className="startup-actions">
@@ -131,49 +130,10 @@ export default function App() {
         page={page}
         navigate={setPage}
         activeDownloads={app.downloads.filter((d) => !terminal(d)).length}
-        folder={app.settings.outputFolder}
-        openFolder={() => void app.openFolder()}
+        session={app.session}
+        retry={() => void app.retrySession()}
       />
       <div className="main-layout">
-        <header className="topbar">
-          <span className="topbar-title">
-            drone-cloud-sync <span>/</span>{" "}
-            {page === "flights"
-              ? "Flight Logs"
-              : page === "downloads"
-                ? "Downloads"
-                : "Settings"}
-          </span>
-          <div className="connection">
-            <span
-              className={`connection-status ${connected ? "connected" : ""}`}
-            >
-              {connected ? <Cloud size={14} /> : <CloudOff size={14} />}
-              {app.session.state}
-            </span>
-            <span className="account-email" title={app.session.email || ""}>
-              {app.session.email}
-            </span>
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label={
-                connected ? "Refresh cloud inventory" : "Retry cloud connection"
-              }
-              title={
-                connected ? "Refresh cloud inventory" : "Retry cloud connection"
-              }
-              disabled={
-                app.inventory?.state === "Fetching" || syncActive(app.sync)
-              }
-              onClick={() =>
-                void (connected ? app.refresh() : app.retrySession())
-              }
-            >
-              <RefreshCw size={15} />
-            </Button>
-          </div>
-        </header>
         {notice}
         {!connected && (
           <div className="offline-banner">
@@ -189,74 +149,98 @@ export default function App() {
             </Button>
           </div>
         )}
-        <main className="page-content">
-          {page === "flights" && (
-            <FlightsPage
-              records={app.records}
-              connected={connected}
-              folder={app.settings.outputFolder}
-              inventory={app.inventory}
-              sync={app.sync}
-              refresh={() => void app.refresh()}
-              startSync={() => {
-                void app.call("start_sync").then((id) => {
-                  if (id) setPage("downloads");
-                });
-              }}
-              cancelSync={() => void app.call("cancel_sync")}
-              cancelInventory={() => void app.call("cancel_inventory")}
-              openDetails={setDetail}
-              download={(ids) => void download(ids)}
-              chooseFolder={() => void app.chooseFolder()}
-              preferences={app.settings.tablePreferences}
-              savePreferences={app.savePreferences}
-            />
-          )}
-          {page === "downloads" && (
-            <DownloadsPage
-              downloads={app.downloads}
-              sync={app.sync}
-              connected={connected}
-              folder={app.settings.outputFolder}
-              cancel={(id) =>
-                void app.call("cancel_download", { downloadId: id })
-              }
-              cancelAll={() => void app.call("cancel_all_downloads")}
-              cancelSync={() => void app.call("cancel_sync")}
-              retry={() => void app.call("retry_failed_downloads")}
-              clear={() =>
-                void app.run(async () => {
-                  await app.call("clear_completed_history");
-                  await app.loadHistory();
-                })
-              }
-              openFolder={() => void app.openFolder()}
-            />
-          )}
-          {page === "settings" && (
-            <SettingsPage
-              settings={app.settings}
-              session={app.session}
-              busy={!!busy}
-              chooseFolder={() => void app.chooseFolder()}
-              scan={() => void app.scan()}
-              openFolder={() => void app.openFolder()}
-              update={(k, v) => void app.update(k, v)}
-              logout={() => void app.logout()}
-              history={app.history}
-            />
-          )}
-        </main>
+        <div
+          className={`workspace-content ${detail && page === "flights" ? "has-details" : ""}`}
+        >
+          <main className="page-content" id="main-content">
+            {page === "flights" && (
+              <FlightsPage
+                records={app.records}
+                connected={connected}
+                folder={app.settings.outputFolder}
+                inventory={app.inventory}
+                sync={app.sync}
+                refresh={() => void app.refresh()}
+                startSync={() => {
+                  void app.call("start_sync").then((id) => {
+                    if (id) setPage("downloads");
+                  });
+                }}
+                cancelSync={() => void app.call("cancel_sync")}
+                cancelInventory={() => void app.call("cancel_inventory")}
+                openDetails={setDetail}
+                download={(ids) => void download(ids)}
+                chooseFolder={() => void app.chooseFolder()}
+                preferences={app.settings.tablePreferences}
+                savePreferences={app.savePreferences}
+                activeRecordId={detail?.id}
+              />
+            )}
+            {page === "downloads" && (
+              <DownloadsPage
+                downloads={app.downloads}
+                sync={app.sync}
+                connected={connected}
+                folder={app.settings.outputFolder}
+                cancel={(id) =>
+                  void app.call("cancel_download", { downloadId: id })
+                }
+                cancelAll={() => void app.call("cancel_all_downloads")}
+                cancelSync={() => void app.call("cancel_sync")}
+                retry={() => void app.call("retry_failed_downloads")}
+                clear={() =>
+                  void app.run(async () => {
+                    await app.call("clear_completed_history");
+                    await app.loadHistory();
+                  })
+                }
+                openFolder={() => void app.openFolder()}
+              />
+            )}
+            {page === "settings" && (
+              <SettingsPage
+                settings={app.settings}
+                session={app.session}
+                busy={!!busy}
+                chooseFolder={() => void app.chooseFolder()}
+                scan={() => void app.scan()}
+                openFolder={() => void app.openFolder()}
+                update={(k, v) => void app.update(k, v)}
+                logout={() => void app.logout()}
+                history={app.history}
+              />
+            )}
+          </main>
+          <FlightDetails
+            record={page === "flights" ? detail : null}
+            close={() => setDetail(null)}
+            canDownload={
+              connected && !!app.settings.outputFolder && !syncActive(app.sync)
+            }
+            download={(id, force) => void download([id], force)}
+            openFolder={(id) => void app.openFolder(id)}
+          />
+        </div>
+        <footer className="workspace-footer">
+          <button
+            className="output-folder"
+            title={app.settings.outputFolder || "Choose an output folder"}
+            onClick={() =>
+              app.settings.outputFolder
+                ? void app.openFolder()
+                : void app.chooseFolder()
+            }
+          >
+            <FolderOpen size={15} />
+            <span>
+              {app.settings.outputFolder || "Choose an output folder"}
+            </span>
+          </button>
+          <span className="footer-state">
+            {connected ? "Connected to DJI" : "Viewing cached records"}
+          </span>
+        </footer>
       </div>
-      <FlightDetails
-        record={detail}
-        close={() => setDetail(null)}
-        canDownload={
-          connected && !!app.settings.outputFolder && !syncActive(app.sync)
-        }
-        download={(id, force) => void download([id], force)}
-        openFolder={(id) => void app.openFolder(id)}
-      />
     </div>
   );
 }

@@ -1,34 +1,27 @@
-import {
-  Download,
-  FileText,
-  Settings2,
-  FolderOpen,
-  HardDrive,
-} from "lucide-react";
-import type { Page } from "../types";
+import { Download, FileText, Settings2, Cloud, CloudOff } from "lucide-react";
+import type { Page, Session } from "../types";
 import { Brand } from "./Brand";
 import { Button } from "./ui/button";
 export function Sidebar({
   page,
   navigate,
   activeDownloads,
-  folder,
-  openFolder,
+  session,
+  retry,
 }: {
   page: Page;
   navigate: (p: Page) => void;
   activeDownloads: number;
-  folder?: string;
-  openFolder: () => void;
+  session: Session;
+  retry: () => void;
 }) {
   return (
     <aside className="sidebar">
       <Brand />
-      <div className="workspace-label">WORKSPACE</div>
       <nav aria-label="Primary navigation">
         {(
           [
-            { id: "flights", icon: FileText, label: "Flight Logs" },
+            { id: "flights", icon: FileText, label: "Flight logs" },
             { id: "downloads", icon: Download, label: "Downloads" },
             { id: "settings", icon: Settings2, label: "Settings" },
           ] as const
@@ -48,19 +41,32 @@ export function Sidebar({
         ))}
       </nav>
       <div className="sidebar-bottom">
-        <div className="folder-card">
-          <HardDrive size={18} />
-          <strong>Your local workspace</strong>
-          <p title={folder}>{folder || "Choose a folder to get started."}</p>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={folder ? openFolder : () => navigate("settings")}
-          >
-            <FolderOpen size={14} />
-            {folder ? "Open folder" : "Choose folder"}
-          </Button>
+        <div className="rail-connection">
+          {session.state === "Connected" ? (
+            <Cloud size={16} />
+          ) : (
+            <CloudOff size={16} />
+          )}
+          <span>
+            {session.state === "Connected"
+              ? "DJI account connected"
+              : "Offline"}
+          </span>
         </div>
+        <p className="rail-email" title={session.email || ""}>
+          {session.email}
+        </p>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={
+            session.state === "Connected" ? () => navigate("settings") : retry
+          }
+        >
+          {session.state === "Connected"
+            ? "Account settings"
+            : "Retry connection"}
+        </Button>
       </div>
     </aside>
   );
