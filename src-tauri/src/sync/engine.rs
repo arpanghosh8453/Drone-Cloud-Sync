@@ -36,6 +36,12 @@ pub struct SyncProgress {
     pub failed: usize,
     pub missing: usize,
     pub scanned: usize,
+    #[serde(default)]
+    pub scan_total: usize,
+    #[serde(default)]
+    pub scan_hashed: usize,
+    #[serde(default)]
+    pub scan_reused: usize,
     pub error: Option<String>,
 }
 pub struct SyncEngine {
@@ -43,7 +49,7 @@ pub struct SyncEngine {
     pub db: Arc<Database>,
     pub downloads: Arc<DownloadManager>,
     pub sink: Arc<dyn EventSink>,
-    state: Mutex<SyncProgress>,
+    state: Arc<Mutex<SyncProgress>>,
     cancel: Mutex<Option<CancellationToken>>,
     inventory: tokio::sync::Mutex<()>,
     inventory_cancel: Mutex<Option<CancellationToken>>,
@@ -60,7 +66,7 @@ impl SyncEngine {
             db,
             downloads,
             sink,
-            state: Mutex::new(SyncProgress::default()),
+            state: Arc::new(Mutex::new(SyncProgress::default())),
             cancel: Mutex::new(None),
             inventory: tokio::sync::Mutex::new(()),
             inventory_cancel: Mutex::new(None),
@@ -292,21 +298,43 @@ impl SyncEngine {
         let sink = self.sink.clone();
         let scan_folder = folder.clone();
         let mut scanning = p.clone();
-        let scan = tokio::task::spawn_blocking(move || {
-            reconciliation::scan(&db, &account_owned, &scan_folder, &scan_cancel, |n| {
-                if n % 10 == 0 {
-                    scanning.scanned = n;
-                    emit(sink.as_ref(), "sync:progress", &scanning);
-                }
-            })
+        let scan_state = self.state.clone();
+        let scan_result = tokio::task::spawn_blocking(move || {
+            let mut last_update = std::time::Instant::now();
+            reconciliation::scan(
+                &db,
+                &account_owned,
+                &scan_folder,
+                reconciliation::ScanMode::Incremental,
+                &scan_cancel,
+                |update| {
+                    let phase_changed = scanning.stage != update.stage;
+                    scanning.stage = update.stage.into();
+                    scanning.scanned = update.checked;
+                    scanning.scan_total = update.total;
+                    scanning.scan_hashed = update.hashed;
+                    scanning.scan_reused = update.reused;
+                    if phase_changed
+                        || update.checked == 0
+                        || update.checked == update.total
+                        || last_update.elapsed() >= Duration::from_millis(100)
+                    {
+                        *scan_state.lock().unwrap() = scanning.clone();
+                        emit(sink.as_ref(), "sync:progress", &scanning);
+                        last_update = std::time::Instant::now();
+                    }
+                },
+            )
         })
         .await
-        .map_err(|_| Error::Invalid("Folder scanning worker stopped unexpectedly".into()))??;
+        .map_err(|_| Error::Invalid("Folder scanning worker stopped unexpectedly".into()))?;
+        *p = self.status();
+        let scan = scan_result?;
         p.scanned = scan.scanned;
+        p.scan_hashed = scan.hashed;
+        p.scan_reused = scan.reused;
         p.already_present = scan.present;
         p.missing = scan.missing;
-        p.stage = "Comparing records".into();
-        self.publish(p, "sync:progress");
         if !scan.errors.is_empty() {
             return Err(Error::Invalid(format!("{} local files could not be verified. Check folder permissions and rescan before syncing.",scan.errors.len())));
         }

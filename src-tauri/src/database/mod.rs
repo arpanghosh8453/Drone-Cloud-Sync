@@ -1,4 +1,6 @@
 pub mod migrations;
+mod scan;
+pub use scan::{ScanLink, ScannedFile};
 use crate::{
     cloud::models::FlightRecord,
     downloads::progress::DownloadProgress,

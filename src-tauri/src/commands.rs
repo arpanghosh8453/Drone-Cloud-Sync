@@ -171,7 +171,14 @@ async fn scan_output_folder(state: State<'_, AppState>) -> Result<ScanSummary> {
     let account = state.account()?;
     let folder = state.folder()?;
     tokio::task::spawn_blocking(move || {
-        reconciliation::scan(&db, &account, &folder, &CancellationToken::new(), |_| {})
+        reconciliation::scan(
+            &db,
+            &account,
+            &folder,
+            reconciliation::ScanMode::Full,
+            &CancellationToken::new(),
+            |_| {},
+        )
     })
     .await
     .map_err(|_| Error::Invalid("Folder scan stopped".into()))?
@@ -191,7 +198,7 @@ async fn download_selected(
     state.session.credentials()?;
     let folder = state.folder()?;
     let account = state.account()?;
-    // Verify existing associations immediately before skipping a requested record.
+    // Refresh existing associations before skipping a requested record; explicit Rescan reads all contents.
     let db = state.db.clone();
     let scan_folder = folder.clone();
     let scan_account = account.clone();
@@ -200,6 +207,7 @@ async fn download_selected(
             &db,
             &scan_account,
             &scan_folder,
+            reconciliation::ScanMode::Incremental,
             &CancellationToken::new(),
             |_| {},
         )

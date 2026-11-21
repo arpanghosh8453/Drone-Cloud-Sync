@@ -86,7 +86,7 @@ The [build workflow](.github/workflows/build.yml) publishes Linux AppImage/DEB, 
 
 Remembered sessions use the OS credential vault; passwords are never saved. Flight metadata, settings, and download history use local SQLite. Expired sessions pause transfers until you sign in again. Interrupted downloads can be retried; partial files are not resumed.
 
-Sync scans top-level TXT files without deleting existing logs. Keep `.drone-cloud-sync-index.json` alongside your logs to help recover file associations if the database is rebuilt.
+Sync checks top-level TXT files without deleting existing logs. It reuses previously verified hashes when a file's size and modification time are unchanged, and reads new or changed files. Use **Rescan folder** in Settings for a full content verification, including changes that preserve both size and modification time. Keep `.drone-cloud-sync-index.json` alongside your logs to help recover file associations if the database is rebuilt.
 
 ## Implementation reference
 

@@ -38,7 +38,10 @@ pub fn inspect(path: &Path, cancel: &CancellationToken, format: &str) -> Result<
     let before = std::fs::metadata(path)?;
     let (sha256, md5, size_bytes) = hashes(path, cancel)?;
     let after = std::fs::metadata(path)?;
-    if before.len() != after.len() || before.modified()? != after.modified()? {
+    if before.len() != after.len()
+        || size_bytes != after.len()
+        || before.modified()? != after.modified()?
+    {
         return Err(Error::Invalid(
             "A local file changed while it was being verified. Rescan the folder.".into(),
         ));

@@ -4,9 +4,12 @@ use crate::{
     errors::{Error, Result},
 };
 use serde::{Deserialize, Serialize};
-use std::{io::Write, path::Path};
+use std::{
+    io::{BufReader, BufWriter, Write},
+    path::Path,
+};
 pub const INDEX_NAME: &str = ".drone-cloud-sync-index.json";
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Association {
     pub account_id: String,
@@ -32,11 +35,13 @@ pub fn read(folder: &Path) -> Result<Vec<Association>> {
             "Local hash index is unsafe or too large. Inspect the output folder.".into(),
         ));
     }
-    let index: Index = serde_json::from_reader(std::fs::File::open(path)?).map_err(|_| {
-        Error::Invalid(
-            "The local hash index is damaged. Restore it or move it aside before scanning.".into(),
-        )
-    })?;
+    let index: Index = serde_json::from_reader(BufReader::new(std::fs::File::open(path)?))
+        .map_err(|_| {
+            Error::Invalid(
+                "The local hash index is damaged. Restore it or move it aside before scanning."
+                    .into(),
+            )
+        })?;
     if index.version != 1 {
         return Err(Error::Invalid(
             "Local hash index was written by an unsupported version.".into(),
@@ -50,16 +55,38 @@ pub fn read(folder: &Path) -> Result<Vec<Association>> {
 }
 pub fn write(db: &Database, folder: &Path) -> Result<()> {
     // Serialize read/merge/atomic replacement under the same lock as SQLite links.
-    db.with(|conn|{
-        let mut entries=read(folder)?;
-        let mut q=conn.prepare("SELECT r.account_id,r.id,l.expected_sha256,r.server_md5,r.server_hash_kind,f.absolute_path FROM flight_file_links l JOIN flight_records r ON r.id=l.flight_record_id JOIN local_files f ON f.id=l.local_file_id")?;
-        let rows=q.query_map([],|r|Ok((Association{account_id:r.get(0)?,record_id:r.get(1)?,sha256:r.get(2)?,server_md5:r.get(3)?,server_hash_kind:r.get(4)?},r.get::<_,String>(5)?)))?;
-        for row in rows{let (association,path)=row?;if Path::new(&path).parent()!=Some(folder){continue;}
-            entries.retain(|a|a.account_id!=association.account_id||a.record_id!=association.record_id);entries.push(association);
+    db.with(|conn| {
+        let previous = read(folder)?;
+        let mut entries: std::collections::BTreeMap<_, _> = previous.iter().cloned()
+            .map(|a| ((a.account_id.clone(), a.record_id.clone()), a)).collect();
+        let mut q = conn.prepare("SELECT r.account_id,r.id,l.expected_sha256,r.server_md5,r.server_hash_kind,f.absolute_path FROM flight_file_links l JOIN flight_records r ON r.id=l.flight_record_id JOIN local_files f ON f.id=l.local_file_id")?;
+        let rows = q.query_map([], |r| {
+            Ok((Association {
+                account_id: r.get(0)?,
+                record_id: r.get(1)?,
+                sha256: r.get(2)?,
+                server_md5: r.get(3)?,
+                server_hash_kind: r.get(4)?,
+            }, r.get::<_, String>(5)?))
+        })?;
+        for row in rows {
+            let (association, path) = row?;
+            if Path::new(&path).parent() != Some(folder) { continue; }
+            entries.insert((association.account_id.clone(), association.record_id.clone()), association);
         }
-        let index=Index{version:1,associations:entries};
-        let mut file=tempfile::Builder::new().prefix(".drone-cloud-sync-index-").suffix(".part").tempfile_in(folder)?;
-        serde_json::to_writer(&mut file,&index).map_err(|_|Error::Invalid("Could not encode the local hash index".into()))?;file.flush()?;file.as_file().sync_all()?;
-        file.persist(folder.join(INDEX_NAME)).map_err(|e|Error::Io(e.error))?;Ok(())
+        let entries: Vec<_> = entries.into_values().collect();
+        if entries == previous && folder.join(INDEX_NAME).exists() { return Ok(()); }
+        let index = Index { version: 1, associations: entries };
+        let mut file = tempfile::Builder::new().prefix(".drone-cloud-sync-index-")
+            .suffix(".part").tempfile_in(folder)?;
+        {
+            let mut writer = BufWriter::new(&mut file);
+            serde_json::to_writer(&mut writer, &index)
+                .map_err(|_| Error::Invalid("Could not encode the local hash index".into()))?;
+            writer.flush()?;
+        }
+        file.as_file().sync_all()?;
+        file.persist(folder.join(INDEX_NAME)).map_err(|e| Error::Io(e.error))?;
+        Ok(())
     })
 }

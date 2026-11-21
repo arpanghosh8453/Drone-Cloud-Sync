@@ -69,6 +69,9 @@ export interface SyncProgress {
   failed: number;
   missing: number;
   scanned: number;
+  scanTotal?: number;
+  scanHashed?: number;
+  scanReused?: number;
   error: string | null;
 }
 export interface InventoryProgress {
