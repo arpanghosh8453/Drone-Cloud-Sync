@@ -1,8 +1,24 @@
 # drone-cloud-sync
 
+<p align="center">
+  <a href="https://github.com/arpanghosh8453/Drone-Cloud-Sync/releases/latest">
+    <img src="https://img.shields.io/badge/Download-Latest%20Release-1a7f37?style=for-the-badge&logo=github" alt="Download Latest Release" height="48" />
+  </a>
+</p>
+
 A standalone Tauri 2 desktop application for browsing cloud flight records, downloading original flight logs, and synchronizing a local folder. Rust handles authentication, HTTP, cryptography, SQLite, extraction, hashing, and filesystem access. React handles the interface. There is no Python runtime, external application server, external database, or analytics.
 
 This application is independently developed and is not affiliated with DJI.
+
+## Screenshots
+
+Browse flight records, follow synchronization progress, review downloads, and configure your account and output folder. Click a screenshot to view it at full size.
+
+|                                                                Flight library                                                                 |                                                                  Live synchronization                                                                  |
+| :-------------------------------------------------------------------------------------------------------------------------------------------: | :----------------------------------------------------------------------------------------------------------------------------------------------------: |
+| [![Flight library with searchable flight records, aircraft filters, and download status](screenshots/Screen_1.png)](screenshots/Screen_1.png) | [![Active synchronization with overall progress, transfer speeds, and individual download progress](screenshots/Syncing.png)](screenshots/Syncing.png) |
+|                                                            **Completed downloads**                                                            |                                                                      **Settings**                                                                      |
+|            [![Download history showing completed flight logs and file sizes](screenshots/Screen_2.png)](screenshots/Screen_2.png)             |    [![Settings for the output folder, appearance, download concurrency, and connected account](screenshots/Screen_3.png)](screenshots/Screen_3.png)    |
 
 ## Run locally
 
