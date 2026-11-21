@@ -1,0 +1,64 @@
+# Frontend dependencies and generated output
+node_modules/
+/dist/
+/coverage/
+.vite/
+*.tsbuildinfo
+
+# Rust and Tauri output (keep Cargo.lock and source icons)
+/target/
+/src-tauri/target/
+/src-tauri/gen/
+
+# Local credentials, configuration, and signing material
+.env
+.env.*
+!.env.example
+!.env.*.example
+/.aws/
+/.codex/
+/.agents/
+*.pem
+*.key
+*.p12
+*.pfx
+*.mobileprovision
+
+# Runtime databases, flight logs, recovery indexes, and partial downloads
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+*.db
+*.db-*
+*.part
+.drone-cloud-sync-index.json
+.drone-cloud-sync.lock
+/FlightLogs/
+/downloads/
+/logs/
+
+# Logs and local caches
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.cache/
+.tmp/
+/tmp/
+
+# Editor and operating system files
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.example.json
+*.swp
+*.swo
+*~
+.DS_Store
+.AppleDouble/
+.LSOverride
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
